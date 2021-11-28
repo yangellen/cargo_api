@@ -2,16 +2,9 @@ const router = module.exports = require('express').Router();
 const url = require('url');
 const path = require('path');
 
-/*
-router.get('/',async(req,res)=>{
-    res.sendFile(path.join(__dirname,'/index.html'));
-});
-
-router.use('/login',require('./login'));*/
-
 router.use('/boats',require('./boats'));
 router.use('/owners',require('./owners'));
-
+router.use('/users',require('./users'));
 
 
 /* GET home page. */

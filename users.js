@@ -1,8 +1,18 @@
 // routes/users.js
-
 var express = require('express');
 var secured = require('./lib/middleware/secured');
 var router = express.Router();
+
+//to store user in datastore
+const bodyParser = require('body-parser');
+const ds = require('./datastore');
+const datastore = ds.datastore;
+
+const USER = "User";
+
+router.use(bodyParser.json());
+
+const url = require('url');
 
 //function use to parse JWT
 function parseJwt (token) {
@@ -15,10 +25,40 @@ function parseJwt (token) {
   return JSON.parse(jsonPayload);
 };
 
-/* GET user profile. */
+//function use to store user information in datastore
+async function post_user(userInfo) {
+  //check if user exist 
+  if(!(await create_user(userInfo["sub"]))){
+    return
+  }
+  var key = datastore.key(USER);
+  const new_user = { "sub": userInfo["sub"],"email": userInfo["email"]};
+  return datastore.save({ "key": key, "data": new_user }).then(() => { return key });
+}
+
+//function to check if user exist
+async function create_user(sub){
+  let query = datastore.createQuery(USER);
+  let result = await datastore.runQuery(query);
+  let users = result[0];
+
+  users.map(ds.fromDatastore);
+
+  for(let i = 0; i < users.length; i++){
+    if(users[i].sub == sub){
+      return false
+    }
+  }
+  return true
+}
+
+/* GET user information and also store user information in datastore. */
 router.get('/user', secured(), function (req, res, next) {
 
   let id = parseJwt(req.user);
+
+  //store user information
+  post_user(id);
   
   res.render('user', {
     userProfile: req.user,

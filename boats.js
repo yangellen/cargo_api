@@ -13,7 +13,7 @@ const url = require('url');
 
 const jwt = require('express-jwt');
 const jwksRsa = require('jwks-rsa');
-const { appendFile } = require('fs');
+//const { appendFile } = require('fs');
 
 const DOMAIN = 'yange493.us.auth0.com';
 
