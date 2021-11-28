@@ -1,0 +1,11 @@
+body
+    // ...
+    a(href="/") <h1>Welcome</h1>
+    if locals.user
+      a(href="/user") <h2>JWT</h2>
+      a(href="/logout") <h2>Log Out</h2>
+    else
+      a(href="/login") Log In
+
+    // ...
+    block content
