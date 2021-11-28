@@ -52,6 +52,17 @@ async function create_user(sub){
   return true
 }
 
+//function to get all users
+async function get_users() {
+  const q = datastore.createQuery(USER);
+  let users = await datastore.runQuery(q);
+  let all_users = users[0].map(ds.fromDatastore)
+  let count = all_users.length;
+  all_users.push({"total_users":count})
+  
+  return all_users
+}
+
 /* GET user information and also store user information in datastore. */
 router.get('/user', secured(), function (req, res, next) {
 
@@ -64,6 +75,20 @@ router.get('/user', secured(), function (req, res, next) {
     userProfile: req.user,
     userId: id["sub"]
   });
+});
+
+//List all users
+router.get('/', function (req, res) {
+
+   //check accept types
+   if (!req.accepts(['application/json'])){
+    res.status(406).json({'Error': 'The requested content type is not available'});
+    return
+  }
+  const users = get_users()
+      .then((users) => {
+          res.status(200).json(users);
+      });
 });
 
 module.exports = router;

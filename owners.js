@@ -6,6 +6,7 @@ const ds = require('./datastore');
 const datastore = ds.datastore;
 
 const BOAT = "Boat";
+const USER = "User";
 
 router.use(bodyParser.json());
 
@@ -21,6 +22,14 @@ async function get_boats(owner_id) {
     
 }
 
+async function get_users() {
+    const q = datastore.createQuery(USER);
+    let users = await datastore.runQuery(q);
+    let all_users = useres[0].map(ds.fromDatastore)
+    
+    return all_users
+  }
+
   /* ------------- Begin Controller Functions ------------- */
 //List boats depends on status
 router.get('/:owner_id/boats', function (req, res) {  
@@ -30,5 +39,13 @@ router.get('/:owner_id/boats', function (req, res) {
             res.status(200).json(results);
         });
 });
+
+//List all users
+router.get('/', function (req, res) {
+    const users = get_users()
+        .then((users) => {
+            res.status(200).json(users);
+        });
+  });
 
 module.exports = router
