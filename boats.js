@@ -15,7 +15,7 @@ const jwt = require('express-jwt');
 const jwksRsa = require('jwks-rsa');
 //const { appendFile } = require('fs');
 
-const DOMAIN = 'yange493.us.auth0.com';
+const DOMAIN = 'cargo-api.us.auth0.com';
 
 const checkJwt = jwt({
     secret: jwksRsa.expressJwtSecret({
@@ -31,10 +31,75 @@ const checkJwt = jwt({
   });
 
 /* ------------- Begin Boat Model Functions ------------- */
-function post_boats(owner,name, type, length, public) {
+function post_boats(owner,name, type, length,loads) {
     var key = datastore.key(BOAT);
-    const new_boat = { "owner": owner,"name": name, "type": type, "length": length , "public": public};
+    const new_boat = { "owner": owner,"name": name, "type": type, "length": length,"loads":loads};
     return datastore.save({ "key": key, "data": new_boat }).then(() => { return key });
+}
+
+//check for valid name of boat or type
+function valid_boat_name(name){
+    //make sure is string
+    if (typeof name != 'string'){
+        return false
+    }
+    //check length
+    if (name.length < 1 || name.length > 128){
+        return false
+    }
+
+    //only allows letters, numbers, dash and space
+    validChar = /^[0-9A-Za-z\s\-]+$/;
+    if (!name.match(validChar)){
+        return false
+    } 
+    
+    return true   
+}
+
+//check for valid length of boat
+function valid_boat_length(size){
+    //make sure is a number
+    if (typeof size != 'number'){
+        return false
+    }
+    //check valid range, min 16 feet, max 450 feet
+    if (size < 16 || size > 450){
+        return false
+    }
+    
+    return true   
+}
+
+//check for valid number and type of attribute for put
+function valid_attribute_put(array){
+    //need to be 3
+    if (array.length != 3){
+        return false
+    }
+
+    //check correct attribute
+    const attributes = {"name":0,"type":0,"length":0}
+    
+    //check to see if attribute is name, type, or length
+    for (let att of array){
+        if (attributes.hasOwnProperty(att)){
+            attributes[att] += 1;
+
+        }else{
+            return false
+        }
+    }
+
+    //loop table to check each attribute appear once
+    for (let att of Object.keys(attributes)){
+        if (attributes[att] != 1){
+            return false
+        }
+    }
+
+    return true
+ 
 }
 
 /**
@@ -94,7 +159,25 @@ router.use(function (err, req, res, next) {
     next();
 })
 
-// Add a boat 
+//not allow to delete the whole list
+router.delete('/',function(req,res){
+    res.set('Allow', 'Post');
+    res.status(405).json({'Error': 'Method not allowed'});
+});
+
+//not allow to modified the whole list
+router.put('/',function(req,res){
+    res.set('Allow', 'Post');
+    res.status(405).json({'Error': 'Method not allowed'});
+});
+
+//not allow to modified the whole list
+router.patch('/',function(req,res){
+    res.set('Allow', 'Post');
+    res.status(405).json({'Error': 'Method not allowed'});
+});
+
+// Add a boat, a new boat starts with empty load
 router.post('/',function (req, res) {
     if(req.errorStatus === 'UnauthorizedError'){      
       res.status(401).json({'Error': 'Missing Jwt or invalid Jwt'});
@@ -105,21 +188,55 @@ router.post('/',function (req, res) {
     let name = req.body.name;
     let type = req.body.type;
     let length = req.body.length;
-    let public = req.body.public;
-    
-    /* Request need to have all 4 attributes */
-    if (name && type && length && public != undefined){
-        post_boats(owner,name, type, length, public)
-        .then(key => { 
-            res.type('application/json');
-            
-            res.status(201).send({ "id": key.id, "name":name, "type":type,"length":length, "public":public, "owner":owner
-    
-        })
-    });
-    }else {
-        res.status(400).json({'Error': 'The request object is missing at least one of the required attributes'});
+    let loads = [];
+
+     //check request type
+     if(req.get('content-type') != 'application/json'){
+        res.status(415).json({'Error': 'The server only accepts application/json'});
+        return
     }
+
+    //check accept types
+    if (!req.accepts(['application/json'])){
+        res.status(406).json({'Error': 'The requested content type is not available'});
+        return
+    }
+
+     //check for valid attributes
+     let attArray = Object.keys(req.body);
+     if (!valid_attribute_put(attArray)){
+         res.status(400).json({'Error': 'The request JSON contain attribute that is not name, type, length or missing at least one of the required attributes'});
+             return
+     }
+ 
+     //check name
+     if (!valid_boat_name(name)){
+         res.status(400).json({'Error': 'Name can only have letters, numbers, dash and space with at least one character but no more than 128'});
+         return
+     }
+     //check length
+     if (!valid_boat_length(length)){
+         res.status(400).json({'Error': 'The length of boat must be at least 16 feet but no more than 450 feet'});
+         return
+     }
+     //check type
+     if (!valid_boat_name(type)){
+         res.status(400).json({'Error': 'Type can only have letters, numbers, dash and space with at least one character but no more than 128'});
+         return
+     }
+    
+    /* crate new boats */ 
+    post_boats(owner,name, type, length,loads)
+    .then(key => { 
+        res.type('application/json');
+        
+        res.status(201).send({ "id": key.id, "name":name, "type":type,"length":length, "owner":owner,"loads":loads,
+        "self": url.format({
+            protocol: req.protocol, 
+            hostname: req.get("host"), 
+            pathname: req.baseUrl + '/' + key.id,})
+    })
+});
     
         
 });
