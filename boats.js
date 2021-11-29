@@ -273,6 +273,102 @@ async function delete_boat(id, owner) {
     return  403   
 }
 
+async function put_load_on_boat(load_id, boat_id,owner){
+    const boat_key = datastore.key([BOAT, parseInt(boat_id, 10)]);
+    const load_key = datastore.key([LOAD, parseInt(load_id, 10)]);
+
+    //check if boat exist
+    let boats = await datastore.get(boat_key);
+    if (boats[0] === undefined || boats[0] === null){
+        return 404; 
+    }
+
+    //check if load exist
+    let loads = await datastore.get(load_key);
+    if(loads[0] === undefined || loads[0] === null){
+        return 404;
+    }
+
+    //check for valid owner
+    if (boats[0].owner != owner){
+        return 403
+    }
+
+    //check if load already has carrier
+    if (loads[0].carrier.id){
+        return 403;
+    }else{
+        //assign carrier to load
+        loads[0].carrier = {
+            id: boat_id,
+            name: boats[0].name
+        };
+
+        //place load on boat
+        boats[0].loads.push({id: load_id});
+
+        //save updated load to ds
+        await datastore.save({
+            "key": load_key,
+            "data": loads[0]
+        })
+
+        //save updated boat to ds
+        await datastore.save({
+            "key": boat_key,
+            "data": boats[0]
+        })
+
+        return 204;
+    }
+
+}
+
+async function delete_load_from_boat(load_id, boat_id){
+    const boat_key = datastore.key([BOAT, parseInt(boat_id, 10)]);
+    const load_key = datastore.key([LOAD, parseInt(load_id, 10)]);
+
+    //check if boat exist
+    let boats = await datastore.get(boat_key);
+    if (boats[0] === undefined || boats[0] === null){
+        return 404; 
+    }
+
+    //check if load exist
+    let loads = await datastore.get(load_key);
+    if(loads[0] === undefined || loads[0] === null){
+        return 404;
+    }
+
+    //check if boat is the carrier of this load
+    if (loads[0].carrier.id != boat_id){
+        return 404;
+    }else{
+        //set the carrier of load to {}
+        loads[0].carrier = {};
+
+        //remove load from boat.loads
+        let new_load = boats[0].loads.filter(
+            boat_load => boat_load.id != load_id
+          );
+        
+        boats[0].loads = new_load;
+        
+        await datastore.save({
+            "key": load_key,
+            "data": loads[0]
+        });
+
+        await datastore.save({
+            "key": boat_key,
+            "data": boats[0]
+        });
+
+        return 204;
+    }
+
+}
+
 
 
 
@@ -434,6 +530,16 @@ router.post('/',function (req, res) {
                     hostname: req.get("host"),
                     pathname: req.originalUrl
                 });
+
+                //add self to array of loads
+                for(let i = 0; i < boat[0].loads.length; i++){
+                    let load = boat[0].loads[i];
+                    load.self = url.format({
+                        protocol:req.protocol,
+                        hostname: req.get('host'),
+                        pathname: 'loads/' +load.id
+                    });
+                }
                
                 res.status(200).json(boat[0]);
                 
@@ -631,5 +737,55 @@ router.delete('/:id', function (req, res) {
             }
         });
 });
+
+//Put a load to boat
+router.put('/:boat_id/loads/:load_id', function(req,res){
+    if(req.errorStatus === 'UnauthorizedError'){      
+        res.status(401).json({'Error': 'Missing Jwt or invalid Jwt'});
+        return
+    }
+
+    //check accept types
+    if (!req.accepts(['application/json'])){
+        res.status(406).json({'Error': 'The requested content type is not available'});
+        return
+    }
+
+    let load_id = req.params.load_id;
+    let boat_id = req.params.boat_id;
+
+    put_load_on_boat(load_id, boat_id,req.user.sub)
+        .then(result => {
+        res.status(result);
+        if (result === 403){
+            res.json({"Error": "The carrier is not empty or you are not the owner of the boats" });
+        }
+        else if (result === 404){
+            res.json({"Error": "The specified boat and/or load does not exist"});
+        }
+        else{
+            res.end();
+        }
+
+     });
+
+});
+
+//Remove load from boat
+router.delete('/:boat_id/loads/:load_id',function(req,res){
+    let load_id = req.params.load_id;
+    let boat_id = req.params.boat_id;
+
+    delete_load_from_boat(load_id,boat_id)
+    .then(result => {
+        res.status(result);
+        if (result === 404){
+            res.send({"Error": "No load with this load_id is at the boat with this boat_id" });
+        }else{
+            res.end();
+        }
+     });
+
+})
 
 module.exports = router
