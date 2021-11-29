@@ -102,6 +102,46 @@ function valid_attribute_put(array){
  
 }
 
+//check for valid number and type of attribute for patch
+function valid_attribute_patch(array){
+    //need at least 1 but no more than 3
+    if (array.length < 1 || array.length > 3){
+        return false
+    }
+
+    //check correct attribute
+    const attributes = {"name":0,"type":0,"length":0}
+    
+    //check to see if attribute is name, type, or length
+    for (let att of array){
+        if (attributes.hasOwnProperty(att)){
+            attributes[att] += 1;
+
+        }else{
+            return false
+        }
+    }
+
+    //loop table to check each attribute appear no more than once
+    let count = 0;
+
+    for (let att of Object.keys(attributes)){
+        if (attributes[att] > 1){
+            return false
+        }
+        else if (attributes[att] === 1){
+            count += 1;
+        }
+    }
+
+    if (count < 1){
+        return false
+    }
+
+    return true
+ 
+}
+
 /**
  Get a boat with valid id and owner
  */
@@ -151,6 +191,35 @@ async function put_boat(id, name, type, length,owner) {
     return boat
 
 }
+
+async function patch_boat(id, name, type, length, owner) {
+    const key = datastore.key([BOAT, parseInt(id, 10)]);
+
+    let boats = await datastore.get(key);
+    let boat = boats[0];
+
+    //check for valid id 
+    if (boat === undefined || boat === null){
+        return null
+    }
+
+    //check for valid owner
+    if (boat.owner != owner){
+        return 403
+    }
+
+    boat.name = name || boat.name;
+    boat.type = type || boat.type;
+    boat.length = length || boat.length;
+    boat.loads = boat.loads;
+    boat.owner = boat.owner;
+
+    await datastore.save({ "key": key, "data": boat });
+
+    return boat;
+    
+}
+
 
 /**
  * The function datastore.query returns an array, where the element at index 0
@@ -395,6 +464,84 @@ router.put('/:id', function (req, res) {
         }
     });
 })
+
+//Edit a bot with PATCH, updated only modified attribute and other remain the same
+router.patch('/:id', function (req, res) {
+    if(req.errorStatus === 'UnauthorizedError'){      
+        res.status(401).json({'Error': 'Missing Jwt or invalid Jwt'});
+        return
+    }
+
+    let id = req.params.id;
+    let name = req.body.name;
+    let type = req.body.type;
+    let length = req.body.length;
+    let owner = req.user.sub
+
+     //check request type
+     if(req.get('content-type') != 'application/json'){
+        res.status(415).json({'Error': 'The server only accepts application/json'});
+        return
+    }
+
+    //check accept types
+    if (!req.accepts(['application/json'])){
+        res.status(406).json({'Error': 'The requested content type is not available'});
+        return
+    }
+
+    //check for valid attributes
+    let attArray = Object.keys(req.body);
+    if (!valid_attribute_patch(attArray)){
+        res.status(400).json({'Error': 'The request JSON contain attribute that is not name, type, length or contain no required attributes'});
+            return
+    }
+
+    //check name
+    if (name){
+        if (!valid_boat_name(name)){
+            res.status(400).json({'Error': 'Name can only have letters, numbers, dash and space with at least one character but no more than 128'});
+            return
+        }
+    }
+    
+    //check length
+    if (length){
+        if (!valid_boat_length(length)){
+            res.status(400).json({'Error': 'The length of boat must be at least 16 feet but no more than 450 feet'});
+            return
+        }
+    }
+    
+    //check type
+    if (type){
+        if (!valid_boat_name(type)){
+            res.status(400).json({'Error': 'Type can only have letters, numbers, dash and space with at least one character but no more than 128'});
+            return
+        }
+
+    }
+    
+    patch_boat(id, name, type, length, owner)
+    .then(key => { 
+        if (key === 403){
+            res.status(403).json({'Error': 'You are not the owner of the boat'});
+        
+        }else if (key === undefined || key === null) {
+            
+            res.status(404).json({ 'Error': 'No boat with this boat_id exists' });
+        }else{
+            
+            res.status(200).send({"id": id, "name":key.name, "type":key.type,"length":key.length,"owner":owner,"loads":key.loads,
+            "self": url.format({
+                protocol: req.protocol, 
+                hostname: req.get('host'), 
+                pathname: req.originalUrl})
+                
+            });
+        }
+    });
+});
 
 //List boats depends on status
 router.get('/', function (req, res) {  
