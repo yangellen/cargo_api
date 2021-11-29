@@ -77,6 +77,24 @@ router.get('/user', secured(), function (req, res, next) {
   });
 });
 
+//not allow to delete the whole list
+router.delete('/',function(req,res){
+  res.set('Allow', 'Post');
+  res.status(405).json({'Error': 'Method not allowed'});
+});
+
+//not allow to modified the whole list
+router.put('/',function(req,res){
+  res.set('Allow', 'Post');
+  res.status(405).json({'Error': 'Method not allowed'});
+});
+
+//not allow to modified the whole list
+router.patch('/',function(req,res){
+  res.set('Allow', 'Post');
+  res.status(405).json({'Error': 'Method not allowed'});
+});
+
 //List all users
 router.get('/', function (req, res) {
 
