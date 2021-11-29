@@ -77,7 +77,47 @@ async function put_load(id, volume, content, create_date) {
     await datastore.save({"key":key, "data":load});
 
     return load
+}
 
+//need to have at least one require attribute to modified load with patch
+function has_attribute(volume,content,creation_date){
+    let count = 0;
+    if (volume === undefined){
+        count += 1;
+    }
+    if (content === undefined){
+        count += 1;
+    }
+    if (creation_date === undefined){
+        count += 1;
+    }
+
+    if (count >= 3){
+        return false
+    }
+    return true
+}
+
+//allow you to update subset of attribute whle other attributes remain unchanged. 
+async function patch_load(id, volume, content, create_date) {
+    
+    const key = datastore.key([LOAD, parseInt(id, 10)]);
+    let loads = await datastore.get(key);
+    let load = loads[0];
+
+    //chack valid id
+    if (load === undefined || load === null){
+        return null
+    }
+
+    load.volume = volume || load.volume;
+    load.content = content || load.content;
+    load.create_date = create_date || load.create_date;
+    load.carrier = load.carrier;
+    
+    await datastore.save({"key":key, "data":load});
+
+    return load
 }
 
 async function delete_load(id) {
@@ -262,7 +302,7 @@ router.put('/:id', function (req, res) {
                 return
             }
             res.status(201).send({
-             "id":key.id, 
+             "id":id, 
              "volume": volume,
              "carrier" : key.carrier,
              "content": content,
@@ -277,8 +317,55 @@ router.put('/:id', function (req, res) {
     }else {
         res.status(400).json({'Error': 'The request object is missing at least one of the required attributes'});
     }
-    
-    
+       
+})
+
+//Edit a load with Patch, at least one of the required attributes must be present.
+//allows you to update subset of attributes whilte other attriubtes remain unchanged.
+router.patch('/:id', function (req, res) {
+    //check request type
+    if(req.get('content-type') != 'application/json'){
+        res.status(415).json({'Error': 'The server only accepts application/json'});
+        return
+    }
+
+    //check accept types
+    if (!req.accepts(['application/json'])){
+        res.status(406).json({'Error': 'The requested content type is not available'});
+        return
+    }
+    let id = req.params.id;
+    let volume = req.body.volume;
+    let content = req.body.content;
+    let creation_date = req.body.creation_date;
+
+
+
+    /* Request need to have all three attributes */
+    if (has_attribute(volume,content,creation_date)){
+        patch_load(id,volume, content, creation_date)
+        .then(key => { 
+            if (key === null){
+                res.status(404).json({'Error': 'No load with this load_id exists'});
+                return
+            }
+            res.status(201).send({
+             "id":id, 
+             "volume": key.volume,
+             "carrier" : key.carrier,
+             "content": key.content,
+             "creation_date": key.creation_date,
+             "self": url.format({
+                 protocol: req.protocol,
+                 hostname: req.get('host'),
+                 pathname: req.baseUrl + '/' + id
+             })
+        }) 
+    });
+    }else {
+        res.status(400).json({'Error': 'The request object is missing at least one of the required attributes'});
+    }
+       
 })
 
 
@@ -295,7 +382,5 @@ router.delete('/:id', function (req, res) {
             }
         });
 });
-
-
 
 module.exports = router
