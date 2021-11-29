@@ -176,20 +176,6 @@ router.post('/', function (req, res) {
     
 });
 
-//delete a load
-router.delete('/:id', function (req, res) {
-    delete_load(req.params.id)
-        .then(load => {
-            if (load[0] === undefined || load[0] === null) {
-                // The 0th element is undefined. This means there is no boat with this id
-                res.status(404).json({ 'Error': 'No load with this load_id exists' });
-            } else {
-                // Return 204 No Content
-                res.status(204).end();
-            }
-        });
-});
-
 //Get a single load
 router.get('/:id', function (req, res) {
 
@@ -225,5 +211,21 @@ router.get('/:id', function (req, res) {
             }
         });
 });
+
+//delete a load
+router.delete('/:id', function (req, res) {
+    delete_load(req.params.id)
+        .then(load => {
+            if (load[0] === undefined || load[0] === null) {
+                // The 0th element is undefined. This means there is no boat with this id
+                res.status(404).json({ 'Error': 'No load with this load_id exists' });
+            } else {
+                // Return 204 No Content
+                res.status(204).end();
+            }
+        });
+});
+
+
 
 module.exports = router
