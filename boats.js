@@ -225,22 +225,30 @@ async function patch_boat(id, name, type, length, owner) {
  * The function datastore.query returns an array, where the element at index 0
  * is itself an array. Each element in the array at element 0 is a JSON object
  * with an entity fromt the type "boat".
+ * Display 5 boats per page
  */
-async function get_boats(owner) {
-    
-    //return all boats by owner
-    if (owner != null){
-       
-        const query = datastore.createQuery(BOAT).filter('owner','=', owner);
-        let boats = await datastore.runQuery(query);
-        return boats[0].map(ds.fromDatastore);
+ async function get_boats(req) {
+    let owner = req.user.sub;
+    let totalQuery = datastore.createQuery(BOAT).filter('owner','=', owner);
+    let query = datastore.createQuery(BOAT).filter('owner','=', owner).limit(5);
+
+    let results = {};
+    if(req.query && req.query.cursor){
+        query = query.start(req.query.cursor);
     }
-    else{
-       
-        const query = datastore.createQuery(BOAT).filter('public','=', true);
-        let boats = await datastore.runQuery(query);
-        return boats[0].map(ds.fromDatastore);      
-    }    
+
+    let totalBoats = await datastore.runQuery(totalQuery);
+    let boats = await datastore.runQuery(query);
+
+    results.items = boats[0].map(ds.fromDatastore);
+    results.total_boats = totalBoats[0].length;
+
+    if (boats[1].moreResults != ds.Datastore.NO_MORE_RESULTS){
+        results.next = req.protocol+"://"+req.get("host")+req.baseUrl+"?cursor="+boats[1].endCursor;
+    }
+    
+    return results
+    
 }
 
 //
@@ -294,6 +302,43 @@ router.put('/',function(req,res){
 router.patch('/',function(req,res){
     res.set('Allow', 'Post');
     res.status(405).json({'Error': 'Method not allowed'});
+});
+
+//List all boats 
+router.get('/', async function (req, res) {
+    if(req.errorStatus === 'UnauthorizedError'){      
+        res.status(401).json({'Error': 'Missing Jwt or invalid Jwt'});
+        return
+    }
+
+    //check accept types
+    if (!req.accepts(['application/json'])){
+        res.status(406).json({'Error': 'The requested content type is not available'});
+        return
+    }
+
+    let results = await get_boats(req);
+    let boats = results.items;
+
+    for (let i = 0; i < boats.length; i++){
+        boats[i].self = url.format({
+            protocol:req.protocol,
+            hostname: req.get('host'),
+            pathname: req.baseUrl + '/' + boats[i].id
+        });
+
+        //add self to array of loads
+        for(let i = 0; i < boats[i].loads.length; i++){
+            let load = boats[i].loads[i];
+            load.self = url.format({
+                protocol:req.protocol,
+                hostname: req.get('host'),
+                pathname: 'loads/' +load.id
+            });
+        }
+    }
+    res.status(200).json(results);
+        
 });
 
 // Add a boat, a new boat starts with empty load
@@ -465,7 +510,7 @@ router.put('/:id', function (req, res) {
     });
 })
 
-//Edit a bot with PATCH, updated only modified attribute and other remain the same
+//Edit a boat with PATCH, updated only modified attribute and other remain the same
 router.patch('/:id', function (req, res) {
     if(req.errorStatus === 'UnauthorizedError'){      
         res.status(401).json({'Error': 'Missing Jwt or invalid Jwt'});
