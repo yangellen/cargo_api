@@ -3,7 +3,7 @@ const url = require('url');
 const path = require('path');
 
 router.use('/boats',require('./boats'));
-router.use('/owners',require('./owners'));
+router.use('/loads',require('./loads'));
 router.use('/users',require('./users'));
 
 

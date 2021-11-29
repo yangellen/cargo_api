@@ -6,6 +6,7 @@ const ds = require('./datastore');
 const datastore = ds.datastore;
 
 const BOAT = "Boat";
+const LOAD = "Load";
 
 router.use(bodyParser.json());
 
@@ -389,7 +390,7 @@ router.post('/',function (req, res) {
          return
      }
     
-    /* crate new boats */ 
+    /* create new boats */ 
     post_boats(owner,name, type, length,loads)
     .then(key => { 
         res.type('application/json');
