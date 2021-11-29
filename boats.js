@@ -105,7 +105,7 @@ function valid_attribute_put(array){
 /**
  Get a boat with valid id and owner
  */
- function get_boat(id, owner) {
+function get_boat(id, owner) {
     
     const key = datastore.key([BOAT, parseInt(id, 10)]);
     return datastore.get(key).then((boat) => {
@@ -121,6 +121,35 @@ function valid_attribute_put(array){
             return boat
         }
     });
+}
+
+//modified all attribute of boat except id, owner and loads with put
+async function put_boat(id, name, type, length,owner) {
+    
+    const key = datastore.key([BOAT, parseInt(id, 10)]);
+    let boats = await datastore.get(key);
+    let boat = boats[0];
+
+    //chack valid id
+    if (boat === undefined || boat === null){
+        return null
+    }
+
+    //check if valid owner
+    if (boat.owner != owner){
+        return 403
+    }
+
+    boat.name = name;
+    boat.type = type;
+    boat.length = length;
+    boat.loads = boat.loads;
+    boat.owner = boat.owner;
+    
+    await datastore.save({"key":key, "data":boat});
+
+    return boat
+
 }
 
 /**
@@ -300,6 +329,11 @@ router.post('/',function (req, res) {
 
 //Edit a boat with PUT, all attributes must be included
 router.put('/:id', function (req, res) {
+    if(req.errorStatus === 'UnauthorizedError'){      
+        res.status(401).json({'Error': 'Missing Jwt or invalid Jwt'});
+        return
+    }
+
     let id = req.params.id;
     let name = req.body.name;
     let type = req.body.type;
@@ -342,27 +376,18 @@ router.put('/:id', function (req, res) {
     }
 
    
-    put_boat(id, name, type, length)
+    put_boat(id, name, type, length, owner)
     .then(key => { 
         if (key === 403){
-            res.status(403).json({'Error': 'Duplicate name for boat'});
+            res.status(403).json({'Error': 'You are not the owner of the boat'});
         
-        }else if (key[0] === undefined || key[0] === null) {
+        }else if (key === null) {
             
             res.status(404).json({ 'Error': 'No boat with this boat_id exists' });
         }else{
-            //set header
-            res.setHeader('Location',url.format({
-                protocol: req.protocol, 
-                hostname: req.get('host'), 
-                pathname: req.originalUrl
-            }));
-
-            res.status(303).send({"id": id, "name":name, "type":type,"length":length,
+            res.status(200).send({"id": id, "name":name, "type":type,"length":length, "owner":owner, "loads":key.loads,
             "self": url.format({
                 protocol: req.protocol, 
-                //hostname: req.hostname, 
-                //port:8080,
                 hostname: req.get('host'), 
                 pathname: req.originalUrl})
                 
