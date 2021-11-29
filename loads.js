@@ -57,6 +57,29 @@ function get_load(id) {
     });
 }
 
+//modified all attribute of load except id and carrier with put
+async function put_load(id, volume, content, create_date) {
+    
+    const key = datastore.key([LOAD, parseInt(id, 10)]);
+    let loads = await datastore.get(key);
+    let load = loads[0];
+
+    //chack valid id
+    if (load === undefined || load === null){
+        return null
+    }
+
+    load.volume = volume;
+    load.content = content;
+    load.create_date = create_date;
+    load.carrier = load.carrier;
+    
+    await datastore.save({"key":key, "data":load});
+
+    return load
+
+}
+
 async function delete_load(id) {
     const key = datastore.key([LOAD, parseInt(id, 10)]);
     const entity = await datastore.get(key);
@@ -211,6 +234,53 @@ router.get('/:id', function (req, res) {
             }
         });
 });
+
+//Edit a load with PUT, all attributes except id and carrier must be included
+router.put('/:id', function (req, res) {
+    //check request type
+    if(req.get('content-type') != 'application/json'){
+        res.status(415).json({'Error': 'The server only accepts application/json'});
+        return
+    }
+
+    //check accept types
+    if (!req.accepts(['application/json'])){
+        res.status(406).json({'Error': 'The requested content type is not available'});
+        return
+    }
+    let id = req.params.id;
+    let volume = req.body.volume;
+    let content = req.body.content;
+    let creation_date = req.body.creation_date;
+
+    /* Request need to have all three attributes */
+    if (volume && content && creation_date != undefined){
+        put_load(id,volume, content, creation_date)
+        .then(key => { 
+            if (key === null){
+                res.status(404).json({'Error': 'No load with this load_id exists'});
+                return
+            }
+            res.status(201).send({
+             "id":key.id, 
+             "volume": volume,
+             "carrier" : key.carrier,
+             "content": content,
+             "creation_date": creation_date,
+             "self": url.format({
+                 protocol: req.protocol,
+                 hostname: req.get('host'),
+                 pathname: req.baseUrl + '/' + id
+             })
+        }) 
+    });
+    }else {
+        res.status(400).json({'Error': 'The request object is missing at least one of the required attributes'});
+    }
+    
+    
+})
+
 
 //delete a load
 router.delete('/:id', function (req, res) {
