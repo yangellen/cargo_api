@@ -324,7 +324,7 @@ async function put_load_on_boat(load_id, boat_id,owner){
 
 }
 
-async function delete_load_from_boat(load_id, boat_id){
+async function delete_load_from_boat(load_id, boat_id, owner){
     const boat_key = datastore.key([BOAT, parseInt(boat_id, 10)]);
     const load_key = datastore.key([LOAD, parseInt(load_id, 10)]);
 
@@ -338,6 +338,11 @@ async function delete_load_from_boat(load_id, boat_id){
     let loads = await datastore.get(load_key);
     if(loads[0] === undefined || loads[0] === null){
         return 404;
+    }
+
+    //check for valid owner
+    if (boats[0].owner != owner){
+        return 403
     }
 
     //check if boat is the carrier of this load
@@ -368,9 +373,6 @@ async function delete_load_from_boat(load_id, boat_id){
     }
 
 }
-
-
-
 
 /* ------------- End Model Functions ------------- */
 
@@ -773,14 +775,27 @@ router.put('/:boat_id/loads/:load_id', function(req,res){
 
 //Remove load from boat
 router.delete('/:boat_id/loads/:load_id',function(req,res){
+    if(req.errorStatus === 'UnauthorizedError'){      
+        res.status(401).json({'Error': 'Missing Jwt or invalid Jwt'});
+        return
+    }
+
+    //check accept types
+    if (!req.accepts(['application/json'])){
+        res.status(406).json({'Error': 'The requested content type is not available'});
+        return
+    }
+
     let load_id = req.params.load_id;
     let boat_id = req.params.boat_id;
 
-    delete_load_from_boat(load_id,boat_id)
+    delete_load_from_boat(load_id,boat_id,req.user.sub)
     .then(result => {
         res.status(result);
         if (result === 404){
             res.send({"Error": "No load with this load_id is at the boat with this boat_id" });
+        }else if (result === 403){
+            res.send({"Error": "You are not the owner of the boat" });
         }else{
             res.end();
         }
