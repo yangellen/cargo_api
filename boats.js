@@ -254,20 +254,34 @@ async function patch_boat(id, name, type, length, owner) {
 
 //
 async function delete_boat(id, owner) {
-    //console.log(id);
-    //console.log(owner);
-
+    
     const key = datastore.key([BOAT, parseInt(id, 10)]);
     const boats = await datastore.get(key);
-
-    //console.log(boats);
-    //console.log(boats[0]);
 
     if (boats[0] === undefined || boats[0] === null) {
         return boats[0]
     } 
     //check if boat belong to owner
     if (boats[0].owner === owner){
+
+        //check if there are any loads in this boat   
+        const loadQuery = datastore.createQuery(LOAD);
+        const entities = await datastore.runQuery(loadQuery);
+
+        const loads = entities[0];
+
+        loads.map(ds.fromDatastore);
+
+        for (let i = 0; i < loads.length; i++){
+            if(loads[i].carrier.id === id){
+                let loadKey = datastore.key([LOAD, parseInt(loads[i].id, 10)]);
+                loads[i].carrier = {};
+                await datastore.save({
+                    "key": loadKey,
+                    "data": loads[i]
+                });
+            }
+        }
         return datastore.delete(key);
     }
     return  403   
@@ -724,12 +738,18 @@ router.delete('/:id', function (req, res) {
         res.status(401).json({'Error': 'Missing Jwt or invalid Jwt'});
         return
     }
+
+    //check accept types
+    if (!req.accepts(['application/json'])){
+        res.status(406).json({'Error': 'The requested content type is not available'});
+        return
+    }
  
     delete_boat(req.params.id, req.user.sub)
         .then(boat => {
             if (boat === undefined || boat === null) {
                 // The 0th element is undefined. This means there is no boat with this id
-                res.status(403).json({ 'Error': 'No boat with this boat_id exists' });
+                res.status(404).json({ 'Error': 'No boat with this boat_id exists' });
             } else if (boat === 403){
                 res.status(403).json({ 'Error': 'This boat is not yours' });
                 
