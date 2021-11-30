@@ -371,10 +371,17 @@ router.patch('/:id', function (req, res) {
 
 //delete a load
 router.delete('/:id', function (req, res) {
+    
+    //check accept types
+    if (!req.accepts(['application/json'])){
+        res.status(406).json({'Error': 'The requested content type is not available'});
+        return
+    }
+
     delete_load(req.params.id)
         .then(load => {
             if (load[0] === undefined || load[0] === null) {
-                // The 0th element is undefined. This means there is no boat with this id
+                // The 0th element is undefined. This means there is no load with this id
                 res.status(404).json({ 'Error': 'No load with this load_id exists' });
             } else {
                 // Return 204 No Content
