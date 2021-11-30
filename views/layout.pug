@@ -1,11 +1,18 @@
-body
-    // ...
-    a(href="/") <h1>Welcome</h1>
-    if locals.user
-      a(href="/user") <h2>JWT</h2>
-      a(href="/logout") <h2>Log Out</h2>
-    else
-      a(href="/login") Log In
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/style.css')
+    link(rel='stylesheet', href='https://www.w3schools.com/w3css/4/w3.css')
+    link(rel='shortcut icon', href='//cdn2.auth0.com/styleguide/latest/lib/logos/img/favicon.png')
 
-    // ...
+  body
+    nav.w3-bar.w3-border.w3-light-grey( role="navigation" )
+      .w3-bar-item.w3-text-grey Welcome
+      a(href="/").w3-bar-item.w3-button Home
+      if locals.user
+        a(href="/user" id="profileDropDown").w3-bar-item.w3-button User JWT/Id
+        a(id="qsLogoutBtn" href="/logout").w3-bar-item.w3-button Log Out
+      else
+        a(id="qsLoginBtn" href="/login").w3-bar-item.w3-button Log In
     block content
