@@ -98,7 +98,7 @@ function has_attribute(volume,content,creation_date){
     return true
 }
 
-//allow you to update subset of attribute whle other attributes remain unchanged. 
+//allow you to update subset of attribute while other attributes remain unchanged. 
 async function patch_load(id, volume, content, create_date) {
     
     const key = datastore.key([LOAD, parseInt(id, 10)]);
@@ -363,7 +363,7 @@ router.patch('/:id', function (req, res) {
         }) 
     });
     }else {
-        res.status(400).json({'Error': 'The request object is missing at least one of the required attributes'});
+        res.status(400).json({'Error': 'The request object contain no required attributes'});
     }
        
 })
