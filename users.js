@@ -16,11 +16,10 @@ const url = require('url');
 
 //function use to parse JWT
 function parseJwt (token) {
-  var base64Url = token.split('.')[1];
-  var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-  var jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-  }).join(''));
+  let base64Url = token.split('.')[1];
+  let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  let buff = Buffer.from(base64, "base64");
+  let jsonPayload = buff.toString('ascii');
 
   return JSON.parse(jsonPayload);
 };
@@ -65,7 +64,7 @@ async function get_users() {
 
 /* GET user information and also store user information in datastore. */
 router.get('/user', secured(), function (req, res, next) {
-
+  
   let id = parseJwt(req.user);
 
   //store user information
